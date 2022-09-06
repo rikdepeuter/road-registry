@@ -349,18 +349,20 @@ namespace RoadRegistry.BackOffice.Core
             {
                 throw new ArgumentNullException(nameof(message));
             }
-
+            
             message.RoadSegmentAdded = new Messages.RoadSegmentAdded
             {
                 Id = Id,
+                Version = 1,
                 TemporaryId = TemporaryId,
                 StartNodeId = StartNodeId,
                 EndNodeId = EndNodeId,
                 Geometry = GeometryTranslator.Translate(Geometry),
+                GeometryVersion = 1,
                 MaintenanceAuthority = new Messages.MaintenanceAuthority
                 {
                     Code = MaintenanceAuthorityId,
-                    Name = MaintenanceAuthorityName ?? ""
+                    Name = MaintenanceAuthorityName ?? string.Empty
                 },
                 GeometryDrawMethod = GeometryDrawMethod,
                 Morphology = Morphology,

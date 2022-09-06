@@ -1,7 +1,6 @@
 namespace RoadRegistry.BackOffice.Api.RoadRegistrySystem;
 
 using Be.Vlaanderen.Basisregisters.BlobStore;
-using Core;
 using FluentValidation;
 
 public class RebuildSnapshotParametersValidator : AbstractValidator<RebuildSnapshotParameters>
@@ -11,11 +10,16 @@ public class RebuildSnapshotParametersValidator : AbstractValidator<RebuildSnaps
     public RebuildSnapshotParametersValidator(IBlobClient client)
     {
         RuleFor(x => x.StartFromVersion)
-            .GreaterThan(0)
-            .MustAsync((version, ct) =>
+            .GreaterThanOrEqualTo(0)
+            .MustAsync(async (version, ct) =>
             {
-                var snapshotBlobName = SnapshotPrefix.Append(new BlobName(version.ToString()));
-                return client.BlobExistsAsync(snapshotBlobName, ct);
+                if (version > 0)
+                {
+                    var snapshotBlobName = SnapshotPrefix.Append(new BlobName(version.ToString()));
+                    return await client.BlobExistsAsync(snapshotBlobName, ct);
+                }
+
+                return true;
             });
     }
 }

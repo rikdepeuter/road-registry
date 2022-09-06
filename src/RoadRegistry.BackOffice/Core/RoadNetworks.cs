@@ -111,33 +111,26 @@ namespace RoadRegistry.BackOffice.Core
                 version = StreamVersion.Start;
             }
 
-            var page = await _store.ReadStreamForwards(Stream, version, StreamPageSize, ct);
-            if (page.Status == PageReadStatus.StreamNotFound)
+            ReadStreamPage page = null;
+            do
             {
-                var network = RoadNetwork.Factory(ImmutableRoadNetworkView.Empty);
-                _map.Attach(new EventSourcedEntityMapEntry(network, Stream, ExpectedVersion.NoStream));
-                return (network, ExpectedVersion.NoStream);
-            }
-            var messages = new List<object>(page.Messages.Length);
-            foreach (var message in page.Messages)
-            {
-                messages.Add(
-                    JsonConvert.DeserializeObject(
-                        await message.GetJsonData(ct),
-                        _mapping.GetEventType(message.Type),
-                        _settings));
-            }
-            view = view.RestoreFromEvents(messages.ToArray());
-            while (!page.IsEnd)
-            {
-                messages.Clear();
-                page = await page.ReadNext(ct);
+                if (page == null)
+                {
+                    page = await _store.ReadStreamForwards(Stream, version, StreamPageSize, ct);
+                }
+                else
+                {
+                    page = await page.ReadNext(ct);
+                }
+                
                 if (page.Status == PageReadStatus.StreamNotFound)
                 {
                     var network = RoadNetwork.Factory(ImmutableRoadNetworkView.Empty);
                     _map.Attach(new EventSourcedEntityMapEntry(network, Stream, ExpectedVersion.NoStream));
                     return (network, ExpectedVersion.NoStream);
                 }
+
+                var messages = new List<object>();
                 foreach (var message in page.Messages)
                 {
                     messages.Add(
@@ -146,8 +139,9 @@ namespace RoadRegistry.BackOffice.Core
                             _mapping.GetEventType(message.Type),
                             _settings));
                 }
+
                 view = view.RestoreFromEvents(messages.ToArray());
-            }
+            } while (!page.IsEnd);
 
             var roadNetwork = RoadNetwork.Factory(view.ToImmutable());
             _map.Attach(new EventSourcedEntityMapEntry(roadNetwork, Stream, page.LastStreamVersion));

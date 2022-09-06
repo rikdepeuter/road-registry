@@ -22,7 +22,10 @@ namespace RoadRegistry.BackOffice.Core
                 .UseRoadRegistryContext(store, snapshotReader, EnrichEvent.WithTime(clock))
                 .Handle(async (context, command, ct) =>
                 {
-                    await snapshotWriter.SetHeadToVersion(command.Body.StartFromVersion, ct);
+                    if (command.Body.StartFromVersion > 0)
+                    {
+                        await snapshotWriter.SetHeadToVersion(command.Body.StartFromVersion, ct);
+                    }
                     var (network, version) = await context.RoadNetworks.GetWithVersion(ct);
                     await snapshotWriter.WriteSnapshot(network.TakeSnapshot(), version, ct);
                 });
@@ -50,7 +53,9 @@ namespace RoadRegistry.BackOffice.Core
                         network.ProvidesNextNumberedRoadAttributeId(),
                         network.ProvidesNextRoadSegmentLaneAttributeId(),
                         network.ProvidesNextRoadSegmentWidthAttributeId(),
-                        network.ProvidesNextRoadSegmentSurfaceAttributeId()
+                        network.ProvidesNextRoadSegmentSurfaceAttributeId(),
+                        network.ProvidesNextRoadSegmentVersion(),
+                        network.ProvidesNextRoadSegmentGeometryVersion()
                     );
                     var requestedChanges = await translator.Translate(message.Body.Changes, context.Organizations, ct);
                     network.Change(request, reason, @operator, translation, requestedChanges);

@@ -121,6 +121,11 @@ namespace RoadRegistry.Syndication.Projections.MunicipalityEvents
     {
     }
 
+    [DataContract(Name = "MunicipalityFacilitiesLanguageWasAdded", Namespace = "")]
+    public class MunicipalityFacilitiesLanguageWasAdded
+    {
+    }
+
     public enum MunicipalityLanguage
     {
         Dutch = 0,

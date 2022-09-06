@@ -30,15 +30,14 @@ namespace RoadRegistry.Syndication.ProjectionHost
             using (var contentXmlReader =
                 XmlReader.Create(
                     new StringReader(message.Description),
-                    new XmlReaderSettings {Async = true}))
+                    new XmlReaderSettings { Async = true }))
             {
                 var atomEntry = new AtomEntry(message, _dataContractSerializer.ReadObject(contentXmlReader));
-
-                using (var eventXmlReader =
-                    XmlReader.Create(
-                        new StringReader(((SyndicationContent<T>) atomEntry.Content).Event.OuterXml)))
+                var content = (SyndicationContent<T>)atomEntry.Content;
+                
+                using (var eventXmlReader = XmlReader.Create(new StringReader(content.Event.OuterXml)))
                 {
-                    var serializer = FindEventSerializer(atomEntry);
+                    var serializer = FindEventSerializer(content);
                     if (serializer == null)
                         return null;
 
@@ -62,13 +61,22 @@ namespace RoadRegistry.Syndication.ProjectionHost
             }
         }
 
+        //TODO-rik obsolete
         private DataContractSerializer FindEventSerializer(AtomEntry atomEntry)
         {
             var splitTitle = atomEntry.FeedEntry.Title.Split('-');
-            if(!splitTitle.Any())
+            if (!splitTitle.Any())
                 throw new FormatException($"Could not find event name in atom entry with id {atomEntry.FeedEntry.Id}. Title was '{atomEntry.FeedEntry.Title}'.");
 
             var eventName = splitTitle[0];
+
+            return _eventSerializers.HasSerializerFor(eventName) ? _eventSerializers.GetSerializerFor(eventName) : null;
+        }
+
+        private DataContractSerializer FindEventSerializer<T>(SyndicationContent<T> content)
+        {
+            var eventName = content.Event.LocalName;
+
             return _eventSerializers.HasSerializerFor(eventName) ? _eventSerializers.GetSerializerFor(eventName) : null;
         }
     }

@@ -16,6 +16,7 @@ namespace RoadRegistry.BackOffice.Api
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging.Abstractions;
     using NetTopologySuite;
+    using NetTopologySuite.Geometries;
     using NetTopologySuite.IO;
     using NodaTime;
     using RoadRegistry.Framework.Containers;
@@ -197,7 +198,7 @@ namespace RoadRegistry.BackOffice.Api
                 await controller.PostDownloadRequest(new DownloadExtractRequestBody
                 {
                     RequestId = externalExtractRequestId,
-                    Contour = writer.Write(new NetTopologySuite.Geometries.Point(1.0, 2.0))
+                    Contour = writer.Write(new Point(1.0, 2.0))
                 });
                 throw new XunitException("Expected a validation exception but did not receive any");
             }
@@ -206,6 +207,45 @@ namespace RoadRegistry.BackOffice.Api
             }
         }
 
+        [Fact]
+        public async Task When_requesting_an_extract_with_a_custom_contour_that_is_too_large()
+        {
+            var writer = new WKTWriter
+            {
+                PrecisionModel = GeometryConfiguration.GeometryFactory.PrecisionModel
+            };
+            var wktReader = new WKTReader(new NtsGeometryServices(GeometryConfiguration.GeometryFactory.PrecisionModel, GeometryConfiguration.GeometryFactory.SRID));
+            var downloadExtractRequestBodyValidator = new DownloadExtractRequestBodyValidator(wktReader, new NullLogger<DownloadExtractRequestBodyValidator>());
+            var downloadExtractByContourRequestBodyValidator = new DownloadExtractByContourRequestBodyValidator(wktReader, new NullLogger<DownloadExtractByContourRequestBodyValidator>());
+            var downloadExtractByNisCodeRequestBodyValidator = new DownloadExtractByNisCodeRequestBodyValidator(_editorContext);
+
+            var controller = new ExtractsController(
+                SystemClock.Instance,
+                Dispatch.Using(_resolver),
+                _downloadClient,
+                _uploadClient,
+                wktReader,
+                downloadExtractRequestBodyValidator,
+                downloadExtractByContourRequestBodyValidator,
+                downloadExtractByNisCodeRequestBodyValidator,
+                _editorContext)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+            };
+
+            try
+            {
+                await controller.PostDownloadRequestByContour(new DownloadExtractByContourRequestBody
+                {
+                    Contour = writer.Write(new Polygon(new LinearRing(new [] { new Coordinate(0, 0) , new Coordinate(100001, 0), new Coordinate(100001, 1), new Coordinate(0, 1), new Coordinate(0, 0) })))
+                });
+                throw new XunitException("Expected a validation exception but did not receive any");
+            }
+            catch (ValidationException)
+            {
+            }
+        }
+        
         [Fact]
         public async Task When_downloading_an_extract_using_an_malformed_download_id()
         {

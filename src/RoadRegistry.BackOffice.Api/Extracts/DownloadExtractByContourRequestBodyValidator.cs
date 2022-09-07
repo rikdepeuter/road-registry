@@ -36,42 +36,40 @@ namespace RoadRegistry.BackOffice.Api.Extracts
                 .MaximumLength(ExtractDescription.MaxLength).WithMessage($"'Description' must not be longer than {ExtractDescription.MaxLength} characters");
         }
 
-        private bool BeMultiPolygonGeometryAsWellKnownText(string text)
+        private Geometry ParseWellKnownText(string wkt)
         {
             try
             {
-                var geometry = _reader.Read(text);
-                return geometry switch
-                {
-                    MultiPolygon multiPolygon => multiPolygon.IsValid,
-                    Polygon polygon => polygon.IsValid,
-                    _ => false
-                };
+                var geometry = _reader.Read(wkt);
+                return geometry;
             }
             catch (ParseException exception)
             {
                 _logger.LogWarning(exception, "The download extract request body validation encountered a problem while trying to parse the contour as well-known text");
-                return false;
+                return null;
             }
+        }
+
+        private bool BeMultiPolygonGeometryAsWellKnownText(string text)
+        {
+            var geometry = ParseWellKnownText(text);
+            return geometry switch
+            {
+                MultiPolygon multiPolygon => multiPolygon.IsValid,
+                Polygon polygon => polygon.IsValid,
+                _ => false
+            };
         }
 
         private bool HaveContourNotTooLarge(string text)
         {
-            try
+            var geometry = ParseWellKnownText(text);
+            return geometry switch
             {
-                var geometry = _reader.Read(text);
-                return geometry switch
-                {
-                    MultiPolygon multiPolygon => multiPolygon.Area <= MaxArea,
-                    Polygon polygon => polygon.Area <= MaxArea,
-                    _ => false
-                };
-            }
-            catch (ParseException exception)
-            {
-                _logger.LogWarning(exception, "The download extract request body validation encountered a problem while trying to parse the contour as well-known text");
-                return false;
-            }
+                MultiPolygon multiPolygon => multiPolygon.Area <= MaxArea,
+                Polygon polygon => polygon.Area <= MaxArea,
+                _ => false
+            };
         }
     }
 }
